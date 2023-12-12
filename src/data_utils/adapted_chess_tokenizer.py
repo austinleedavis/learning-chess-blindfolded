@@ -1,7 +1,7 @@
 # This is an adapter class that enables the ChessTokenizer class to be initialized 
 # as a PreTrainedTokenizer. This is required for us to feed the tokenizer to the
 # Transformer Lens library.
-
+import torch
 from data_utils.chess_tokenizer import ChessTokenizer
 from transformers import PreTrainedTokenizer
 
@@ -36,11 +36,11 @@ class AdaptedChessTokenizer(PreTrainedTokenizer):
             *args, **kwargs)
 
     def encode(self, text, *args, **kwargs):
-        return self.chess_tokenizer.encode(text, *args, **kwargs)
+        return self.convert_tokens_to_ids(self.tokenize(text))
 
     def decode(self, token_ids, *args, **kwargs):
-        return self.chess_tokenizer.decode(token_ids, *args, **kwargs)
-
+        return self.convert_tokens_to_string(self.convert_ids_to_tokens(token_ids))
+        
     @property
     def vocab_size(self) -> int:
         return len(self.get_vocab())
@@ -48,9 +48,19 @@ class AdaptedChessTokenizer(PreTrainedTokenizer):
     def get_vocab(self):
         return self.chess_tokenizer.get_vocab()
 
-    def tokenize(self, text, *args, **kwargs):
-        instance = self.chess_tokenizer.encode(text, get_move_end_positions=False, *args, **kwargs)
-        instance= list(instance)
+    def tokenize(self, text, add_special_tokens=True, *args, **kwargs):
+        instance = []
+        for part in self.chess_tokenizer.move_pattern.split(text.strip()):
+            if part == '':
+                continue
+            elif part == ' ':
+                continue
+                # instance.append(part)
+            else:
+                instance.append(part.strip())
+
+        if add_special_tokens:
+            instance = [self.bos_token] + instance + [self.eos_token]   # Empty string denotes end of move
         return instance
 
     def _convert_token_to_id(self, token:str) -> int:
@@ -62,8 +72,8 @@ class AdaptedChessTokenizer(PreTrainedTokenizer):
         return self.chess_tokenizer.decode_token(index)
 
     def __call__(self, text, max_length=None, **kwargs):
-        return self.chess_tokenizer.__call__(lines=text, max_length=max_length, **kwargs)
-
+        return torch.tensor(self.chess_tokenizer.__call__(lines=text, max_length=max_length, **kwargs))
+    
     @property
     def bos_token_id(self):
         return self.chess_tokenizer.bos_token_id
@@ -76,7 +86,3 @@ class AdaptedChessTokenizer(PreTrainedTokenizer):
     def pad_token_id(self):
         return self.chess_tokenizer.pad_token_id
     
-
-# Example usage:
-# chess_tokenizer_instance = ChessTokenizer(vocab_file="path_to_vocab_file")
-# adapted_tokenizer = AdaptedChessTokenizer(chess_tokenizer_instance)

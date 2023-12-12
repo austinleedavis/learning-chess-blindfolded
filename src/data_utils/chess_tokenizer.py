@@ -92,6 +92,7 @@ class ChessTokenizer:
     def __call__(self, lines, max_length=None, **kwargs):
         encoded_inputs = []
         end_positions_list = []
+        print(f"lines: {lines}")
         for line in lines:
             encoded_input, end_positions = self.encode(line, get_move_end_positions=True)
             encoded_inputs.append(encoded_input)
